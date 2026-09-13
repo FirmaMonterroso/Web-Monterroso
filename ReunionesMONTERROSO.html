@@ -450,10 +450,21 @@
                         <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;margin-bottom:10px;cursor:pointer;">
                             <input type="checkbox" id="chkMostrarDatosCliente" onchange="guardarVisibilidadClienteVinculado()"> 👁️ Mostrar estos datos al Visualizador
                         </label>
-                        <div id="checksVisibilidadDetalle" style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;padding-left:24px;">
+                        <div id="checksVisibilidadDetalle" style="display:flex;flex-direction:column;gap:10px;font-size:12px;padding-left:24px;">
                             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisRegimen" onchange="guardarVisibilidadClienteVinculado()"> Régimen</label>
-                            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisPagadoMes" onchange="guardarVisibilidadClienteVinculado()"> Pagado este mes</label>
-                            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisPagadoAnio" onchange="guardarVisibilidadClienteVinculado()"> Pagado este año</label>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisPagadoMes" onchange="guardarVisibilidadClienteVinculado()"> Pagado en el mes:</label>
+                                <select id="selMesPagado" onchange="guardarVisibilidadClienteVinculado()" style="padding:4px 6px;font-size:11px;">
+                                    <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option>
+                                    <option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option>
+                                    <option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                </select>
+                                <select id="selAnioPagadoMes" onchange="guardarVisibilidadClienteVinculado()" style="padding:4px 6px;font-size:11px;"></select>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisPagadoAnio" onchange="guardarVisibilidadClienteVinculado()"> Pagado en el año:</label>
+                                <select id="selAnioPagado" onchange="guardarVisibilidadClienteVinculado()" style="padding:4px 6px;font-size:11px;"></select>
+                            </div>
                             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisImpuestos" onchange="guardarVisibilidadClienteVinculado()"> Impuestos afectos</label>
                         </div>
                     </div>
@@ -1318,7 +1329,9 @@ async function vincularClienteExistente(){
     if(!cliId){ toast('Elige un cliente','err'); return; }
     const s = sesiones.find(x=>x.id===sesionActualId);
     const datos = s.datos_vivos || {};
-    datos.datosClienteVisibles = datos.datosClienteVisibles || {activo:true, regimen:true, pagadoMes:true, pagadoAnio:true, impuestos:true};
+    const anioActual = new Date().getFullYear();
+    const mesActual = String(new Date().getMonth()+1).padStart(2,'0');
+    datos.datosClienteVisibles = datos.datosClienteVisibles || {activo:true, regimen:true, pagadoMes:true, pagadoAnio:true, impuestos:true, mesPagado:mesActual, anioPagadoMes:anioActual, anioPagado:anioActual};
     const {error} = await db.from('sesiones_presentacion').update({cliente_id:cliId, datos_vivos:datos}).eq('id',sesionActualId);
     if(error){ toast('❌ '+error.message,'err'); return; }
     s.cliente_id = cliId;
@@ -1337,12 +1350,12 @@ async function desvincularCliente(){
 }
 
 // Función compartida: usada tanto por el Editor como por el Visualizador
-async function obtenerDatosClienteReal(clienteId){
+async function obtenerDatosClienteReal(clienteId, mesElegido, anioMesElegido, anioElegido){
     const {data: c} = await db.from('clientes').select('*, regimen:regimen_id(nombre)').eq('id',clienteId).maybeSingle();
     if(!c) return null;
-    const mesActual = new Date().toISOString().slice(0,7);
-    const {data: pagosMes} = await db.from('pagos_clientes').select('monto').eq('cliente_id',clienteId).eq('mes_correspondiente',mesActual);
-    const {data: pagosAnio} = await db.from('pagos_clientes').select('monto,fecha_pago').eq('cliente_id',clienteId).gte('fecha_pago', new Date().getFullYear()+'-01-01');
+    const periodoMes = `${anioMesElegido}-${mesElegido}`;
+    const {data: pagosMes} = await db.from('pagos_clientes').select('monto').eq('cliente_id',clienteId).eq('mes_correspondiente',periodoMes);
+    const {data: pagosAnio} = await db.from('pagos_clientes').select('monto,fecha_pago').eq('cliente_id',clienteId).gte('fecha_pago', anioElegido+'-01-01').lte('fecha_pago', anioElegido+'-12-31');
     const {data: impCliente} = await db.from('cliente_impuestos').select('impuesto:impuesto_id(nombre)').eq('cliente_id',clienteId);
     return {
         nombre: c.nombre_empresa||c.nombre_individual, nit: c.nit,
@@ -1351,6 +1364,18 @@ async function obtenerDatosClienteReal(clienteId){
         pagadoAnio: (pagosAnio||[]).reduce((sum,p)=>sum+(p.monto||0),0),
         impuestos: (impCliente||[]).map(i=>i.impuesto?.nombre).filter(Boolean).join(', ')||'—'
     };
+}
+
+const MESES_NOMBRE_CN = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function poblarSelectoresAnioPeriodo(vis){
+    const anioActual = new Date().getFullYear();
+    const opciones = Array.from({length:6},(_,i)=>anioActual-i).map(a=>`<option value="${a}">${a}</option>`).join('');
+    document.getElementById('selAnioPagadoMes').innerHTML = opciones;
+    document.getElementById('selAnioPagado').innerHTML = opciones;
+    document.getElementById('selMesPagado').value = vis?.mesPagado || String(new Date().getMonth()+1).padStart(2,'0');
+    document.getElementById('selAnioPagadoMes').value = vis?.anioPagadoMes || anioActual;
+    document.getElementById('selAnioPagado').value = vis?.anioPagado || anioActual;
 }
 
 async function cargarDatosClienteVinculado(){
@@ -1368,7 +1393,20 @@ async function cargarDatosClienteVinculado(){
         return;
     }
 
-    const info = await obtenerDatosClienteReal(s.cliente_id);
+    const vis = (s.datos_vivos?.datosClienteVisibles) || {activo:true, regimen:true, pagadoMes:true, pagadoAnio:true, impuestos:true};
+    controlWrap.style.display = 'block';
+    poblarSelectoresAnioPeriodo(vis);
+    document.getElementById('chkMostrarDatosCliente').checked = !!vis.activo;
+    document.getElementById('chkVisRegimen').checked = !!vis.regimen;
+    document.getElementById('chkVisPagadoMes').checked = !!vis.pagadoMes;
+    document.getElementById('chkVisPagadoAnio').checked = !!vis.pagadoAnio;
+    document.getElementById('chkVisImpuestos').checked = !!vis.impuestos;
+    document.getElementById('checksVisibilidadDetalle').style.opacity = vis.activo ? '1' : '0.4';
+
+    const mesSel = document.getElementById('selMesPagado').value;
+    const anioMesSel = document.getElementById('selAnioPagadoMes').value;
+    const anioSel = document.getElementById('selAnioPagado').value;
+    const info = await obtenerDatosClienteReal(s.cliente_id, mesSel, anioMesSel, anioSel);
     if(!info){ textoEl.textContent='Cliente vinculado ya no existe'; return; }
 
     textoEl.textContent = `Vinculado a: ${info.nombre} (${info.nit})`;
@@ -1377,21 +1415,12 @@ async function cargarDatosClienteVinculado(){
     wrap.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;font-size:12.5px;">
             <div>📋 Régimen<br><strong>${info.regimen}</strong></div>
-            <div>💰 Pagado este mes<br><strong>Q${info.pagadoMes.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
-            <div>💰 Pagado este año<br><strong>Q${info.pagadoAnio.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
+            <div>💰 Pagado en ${MESES_NOMBRE_CN[parseInt(mesSel)-1]} ${anioMesSel}<br><strong>Q${info.pagadoMes.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
+            <div>💰 Pagado en ${anioSel}<br><strong>Q${info.pagadoAnio.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
             <div>🧾 Impuestos afectos<br><strong>${info.impuestos}</strong></div>
         </div>
         <button class="btn-sm sm-copy" style="margin-top:10px;" onclick="cargarDatosClienteVinculado()">🔄 Actualizar en vivo</button>
     `;
-
-    controlWrap.style.display = 'block';
-    const vis = (s.datos_vivos?.datosClienteVisibles) || {activo:true, regimen:true, pagadoMes:true, pagadoAnio:true, impuestos:true};
-    document.getElementById('chkMostrarDatosCliente').checked = !!vis.activo;
-    document.getElementById('chkVisRegimen').checked = !!vis.regimen;
-    document.getElementById('chkVisPagadoMes').checked = !!vis.pagadoMes;
-    document.getElementById('chkVisPagadoAnio').checked = !!vis.pagadoAnio;
-    document.getElementById('chkVisImpuestos').checked = !!vis.impuestos;
-    document.getElementById('checksVisibilidadDetalle').style.opacity = vis.activo ? '1' : '0.4';
 }
 
 async function guardarVisibilidadClienteVinculado(){
@@ -1402,12 +1431,16 @@ async function guardarVisibilidadClienteVinculado(){
         regimen: document.getElementById('chkVisRegimen').checked,
         pagadoMes: document.getElementById('chkVisPagadoMes').checked,
         pagadoAnio: document.getElementById('chkVisPagadoAnio').checked,
-        impuestos: document.getElementById('chkVisImpuestos').checked
+        impuestos: document.getElementById('chkVisImpuestos').checked,
+        mesPagado: document.getElementById('selMesPagado').value,
+        anioPagadoMes: document.getElementById('selAnioPagadoMes').value,
+        anioPagado: document.getElementById('selAnioPagado').value
     };
     s.datos_vivos = datos;
     document.getElementById('checksVisibilidadDetalle').style.opacity = datos.datosClienteVisibles.activo ? '1' : '0.4';
     const {error} = await db.from('sesiones_presentacion').update({datos_vivos:datos}).eq('id',sesionActualId);
     if(error){ toast('❌ '+error.message,'err'); return; }
+    await cargarDatosClienteVinculado();
 }
 
 /* ═══════════ SERVICIOS ═══════════ */
@@ -1584,12 +1617,17 @@ async function cargarYMostrarSesionEnVivo(){
     const vizDatosWrap = document.getElementById('vizDatosClienteWrap');
     const vis = datos.datosClienteVisibles;
     if(data.cliente_id && vis?.activo){
-        const info = await obtenerDatosClienteReal(data.cliente_id);
+        const anioActualDefault = new Date().getFullYear();
+        const mesActualDefault = String(new Date().getMonth()+1).padStart(2,'0');
+        const mesSel = vis.mesPagado || mesActualDefault;
+        const anioMesSel = vis.anioPagadoMes || anioActualDefault;
+        const anioSel = vis.anioPagado || anioActualDefault;
+        const info = await obtenerDatosClienteReal(data.cliente_id, mesSel, anioMesSel, anioSel);
         if(info){
             const tarjetas = [];
             if(vis.regimen) tarjetas.push(['📋 Régimen', info.regimen]);
-            if(vis.pagadoMes) tarjetas.push(['💰 Pagado este mes', 'Q'+info.pagadoMes.toLocaleString('es-GT',{minimumFractionDigits:2})]);
-            if(vis.pagadoAnio) tarjetas.push(['💰 Pagado este año', 'Q'+info.pagadoAnio.toLocaleString('es-GT',{minimumFractionDigits:2})]);
+            if(vis.pagadoMes) tarjetas.push(['💰 Pagado en '+MESES_NOMBRE_CN[parseInt(mesSel)-1]+' '+anioMesSel, 'Q'+info.pagadoMes.toLocaleString('es-GT',{minimumFractionDigits:2})]);
+            if(vis.pagadoAnio) tarjetas.push(['💰 Pagado en '+anioSel, 'Q'+info.pagadoAnio.toLocaleString('es-GT',{minimumFractionDigits:2})]);
             if(vis.impuestos) tarjetas.push(['🧾 Impuestos afectos', info.impuestos]);
             if(tarjetas.length){
                 vizDatosWrap.style.display = 'grid';
