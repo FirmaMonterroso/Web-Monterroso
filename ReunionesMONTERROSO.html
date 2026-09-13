@@ -433,6 +433,21 @@
                     <button class="btn btn-primary" onclick="abrirConvertirCliente()">✅ Convertir en Cliente</button>
                 </div>
 
+                <div class="pres-dash" style="margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                        <div>
+                            <h3 style="margin-bottom:2px;">🔗 Vincular a Cliente Existente</h3>
+                            <p style="font-size:11px;color:var(--text-muted);margin:0;" id="clienteVinculadoTexto">Sin vincular — esta es una sesión con un prospecto nuevo</p>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <select id="selectClienteVincular" style="min-width:220px;"><option value="">Buscar cliente...</option></select>
+                            <button class="btn-sm sm-copy" onclick="vincularClienteExistente()">🔗 Vincular</button>
+                            <button class="btn-sm sm-del" id="btnDesvincularCliente" onclick="desvincularCliente()" style="display:none;">✕ Desvincular</button>
+                        </div>
+                    </div>
+                    <div id="datosClienteVinculadoWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
+                </div>
+
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                     <div class="pres-dash" style="margin:0;">
                         <h3 style="margin-bottom:10px;">👤 Datos del Prospecto</h3>
@@ -442,6 +457,9 @@
                             <div class="fg" style="margin:0;"><label>Teléfono</label><input type="text" id="spTelefono" onchange="guardarDatosProspecto()"></div>
                             <div class="fg" style="margin:0;"><label>Email</label><input type="text" id="spEmail" onchange="guardarDatosProspecto()"></div>
                             <div class="fg" style="margin:0;"><label>Notas de la reunión</label><textarea id="spNotas" rows="3" onchange="guardarDatosProspecto()"></textarea></div>
+                            <div class="fg" style="margin:0;"><label>🎨 Color de acento de esta sesión</label>
+                                <input type="color" id="spColorAcento" onchange="guardarDatosProspecto()" style="width:100%;height:38px;padding:2px;cursor:pointer;">
+                            </div>
                         </div>
                     </div>
                     <div class="pres-dash" style="margin:0;">
@@ -454,8 +472,8 @@
 
                 <div class="pres-dash">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                        <h3 style="margin:0;">📈 Gráficas y Comparaciones</h3>
-                        <button class="btn btn-primary" onclick="abrirNuevaGrafica()">➕ Agregar Gráfica</button>
+                        <h3 style="margin:0;">📈 Bloques de Presentación</h3>
+                        <button class="btn btn-primary" onclick="abrirNuevoBloque()">➕ Agregar Bloque</button>
                     </div>
                     <div id="graficasEditorList" style="display:flex;flex-direction:column;gap:14px;"></div>
                 </div>
@@ -500,24 +518,85 @@
 <!-- MODAL: MI HORARIO -->
 <!-- MODAL: NUEVA/EDITAR GRÁFICA -->
 <div id="mGrafica" class="modal">
-    <div class="modal-box" style="max-width:520px;">
-        <div class="modal-head"><h3>📈 Gráfica / Comparación</h3><button class="modal-x" onclick="closeModal('mGrafica')">✕</button></div>
+    <div class="modal-box" style="max-width:560px;">
+        <div class="modal-head"><h3>📈 Nuevo Bloque de Presentación</h3><button class="modal-x" onclick="closeModal('mGrafica')">✕</button></div>
         <div class="modal-body">
-            <div class="fg"><label>Título</label><input type="text" id="grTitulo" placeholder="Ej. Costo Actual vs. Con Nosotros"></div>
-            <div class="fg"><label>Tipo de Gráfica</label>
-                <select id="grTipo">
-                    <option value="barra">Barras</option>
-                    <option value="dona">Circular (Dona)</option>
-                    <option value="linea">Línea</option>
+            <div class="fg"><label>Tipo de Bloque</label>
+                <select id="grTipo" onchange="cambiarTipoBloque()">
+                    <option value="barra">📊 Gráfica de Barras</option>
+                    <option value="dona">🥧 Gráfica Circular (Dona)</option>
+                    <option value="linea">📈 Gráfica de Línea</option>
+                    <option value="kpi">🔢 Tarjeta de KPI (número grande)</option>
+                    <option value="tabla_comparativa">📋 Tabla Comparativa</option>
+                    <option value="linea_tiempo">🗓️ Línea de Tiempo</option>
+                    <option value="checklist">✅ Checklist de Características</option>
+                    <option value="planes">💳 Tarjetas de Planes/Paquetes</option>
+                    <option value="gauge">🎯 Medidor / Gauge</option>
+                    <option value="cifras">🏆 Grid de Cifras de la Firma</option>
                 </select>
             </div>
-            <div class="fg"><label>Datos (una fila por cada barra/segmento/punto)</label></div>
-            <div id="grFilasWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
-            <button class="btn-sm sm-copy" onclick="agregarFilaGrafica()">➕ Agregar fila</button>
+            <div class="fg"><label>Título del Bloque</label><input type="text" id="grTitulo" placeholder="Ej. Costo Actual vs. Con Nosotros"></div>
+
+            <!-- GRÁFICA (barra/dona/línea) -->
+            <div id="bloqueWrapGrafica">
+                <div class="fg"><label>Datos (una fila por cada barra/segmento/punto)</label></div>
+                <div id="grFilasWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+                <button class="btn-sm sm-copy" onclick="agregarFilaGenerica('grFilasWrap',['Categoría','Valor'])">➕ Agregar fila</button>
+            </div>
+
+            <!-- KPI -->
+            <div id="bloqueWrapKpi" style="display:none;">
+                <div class="fg"><label>Valor grande</label><input type="text" id="kpiValor" placeholder="Ej. Q15,000/año"></div>
+                <div class="fg"><label>Etiqueta debajo del valor</label><input type="text" id="kpiEtiqueta" placeholder="Ej. Ahorro potencial estimado"></div>
+                <div class="fg"><label>Color</label><input type="color" id="kpiColor" value="#d4a53f" style="width:100%;height:38px;padding:2px;"></div>
+            </div>
+
+            <!-- TABLA COMPARATIVA -->
+            <div id="bloqueWrapTabla" style="display:none;">
+                <div class="fg"><label>Nombres de columnas (separados por coma)</label><input type="text" id="tablaColumnas" placeholder="Con nosotros, Por tu cuenta"></div>
+                <div class="fg"><label>Filas (concepto + un valor por columna)</label></div>
+                <div id="tablaFilasWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+                <button class="btn-sm sm-copy" onclick="agregarFilaTabla()">➕ Agregar fila</button>
+            </div>
+
+            <!-- LÍNEA DE TIEMPO -->
+            <div id="bloqueWrapTiempo" style="display:none;">
+                <div class="fg"><label>Hitos (momento + descripción)</label></div>
+                <div id="tiempoFilasWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+                <button class="btn-sm sm-copy" onclick="agregarFilaGenerica('tiempoFilasWrap',['Momento (ej. Día 1)','Descripción'])">➕ Agregar hito</button>
+            </div>
+
+            <!-- CHECKLIST -->
+            <div id="bloqueWrapChecklist" style="display:none;">
+                <div class="fg"><label>Características incluidas</label></div>
+                <div id="checklistFilasWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+                <button class="btn-sm sm-copy" onclick="agregarFilaGenerica('checklistFilasWrap',['Característica'])">➕ Agregar ítem</button>
+            </div>
+
+            <!-- PLANES -->
+            <div id="bloqueWrapPlanes" style="display:none;">
+                <div class="fg"><label>Planes (nombre, precio, características separadas por coma)</label></div>
+                <div id="planesFilasWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+                <button class="btn-sm sm-copy" onclick="agregarFilaGenerica('planesFilasWrap',['Nombre del plan','Precio','Características (coma)'])">➕ Agregar plan</button>
+            </div>
+
+            <!-- GAUGE -->
+            <div id="bloqueWrapGauge" style="display:none;">
+                <div class="fg"><label>Valor actual</label><input type="number" id="gaugeValor" placeholder="Ej. 60"></div>
+                <div class="fg"><label>Valor máximo</label><input type="number" id="gaugeMax" placeholder="Ej. 100" value="100"></div>
+                <div class="fg"><label>Etiqueta</label><input type="text" id="gaugeEtiqueta" placeholder="Ej. Cumplimiento tributario actual"></div>
+            </div>
+
+            <!-- CIFRAS -->
+            <div id="bloqueWrapCifras" style="display:none;">
+                <div class="fg"><label>Cifras (número + etiqueta)</label></div>
+                <div id="cifrasFilasWrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+                <button class="btn-sm sm-copy" onclick="agregarFilaGenerica('cifrasFilasWrap',['Número (ej. 15+)','Etiqueta (ej. años)'])">➕ Agregar cifra</button>
+            </div>
         </div>
         <div class="modal-foot">
             <button class="btn btn-ghost" onclick="closeModal('mGrafica')">Cancelar</button>
-            <button class="btn btn-primary" onclick="guardarGrafica()">💾 Guardar</button>
+            <button class="btn btn-primary" onclick="guardarBloque()">💾 Guardar</button>
         </div>
     </div>
 </div>
@@ -947,10 +1026,13 @@ function abrirSesion(id){
     set('spTelefono', datos.telefono||'');
     set('spEmail', datos.email||'');
     set('spNotas', s.notas||'');
+    document.getElementById('spColorAcento').value = datos.colorAcento || '#d4a53f';
 
     renderGraficasEditor();
     renderServiciosEditor();
     renderBenchmarksWrap(datos.benchmarks);
+    cargarSelectClientes();
+    cargarDatosClienteVinculado();
 }
 
 function volverAListaSesiones(){
@@ -968,6 +1050,7 @@ async function guardarDatosProspecto(){
     datos.nit = get('spNit');
     datos.telefono = get('spTelefono');
     datos.email = get('spEmail');
+    datos.colorAcento = document.getElementById('spColorAcento').value;
     const notas = get('spNotas');
     s.datos_vivos = datos;
     s.notas = notas;
@@ -994,17 +1077,21 @@ function limpiarPizarra(){
 /* ═══════════ GRÁFICAS ═══════════ */
 function renderGraficasEditor(){
     const s = sesiones.find(x=>x.id===sesionActualId);
-    const graficas = (s?.datos_vivos?.graficas)||[];
+    const bloques = (s?.datos_vivos?.graficas)||[];
     const cont = document.getElementById('graficasEditorList');
-    if(!graficas.length){ cont.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">Sin gráficas agregadas.</p>'; return; }
-    cont.innerHTML = graficas.map((g,i)=>`
+    if(!bloques.length){ cont.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">Sin bloques agregados. Usa "➕ Agregar Bloque" para empezar.</p>'; return; }
+    cont.innerHTML = bloques.map((b,i)=>`
         <div style="background:var(--bg3);border-radius:10px;padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <strong style="font-size:13px;">${g.titulo} <span style="color:var(--text-muted);font-weight:400;">(${g.tipo})</span></strong>
+                <strong style="font-size:13px;">${b.titulo||'(sin título)'} <span style="color:var(--text-muted);font-weight:400;">(${etiquetaTipoBloque(b.tipo)})</span></strong>
                 <button class="btn-sm sm-del" onclick="borrarGrafica(${i})">🗑️</button>
             </div>
-            <div>${renderMiniGrafica(g)}</div>
+            <div>${renderMiniGrafica(b)}</div>
         </div>`).join('');
+}
+
+function etiquetaTipoBloque(tipo){
+    return ({barra:'Barras',dona:'Dona',linea:'Línea',kpi:'KPI',tabla_comparativa:'Tabla comparativa',linea_tiempo:'Línea de tiempo',checklist:'Checklist',planes:'Planes',gauge:'Medidor',cifras:'Cifras'})[tipo]||tipo;
 }
 
 function renderMiniGrafica(g){
@@ -1030,47 +1117,172 @@ function renderMiniGrafica(g){
                 <div style="width:60px;flex-shrink:0;font-weight:700;">${g.valores[i]}</div>
             </div>`).join('');
     }
-    const max = Math.max(...g.valores,1);
-    const puntos = g.valores.map((v,i)=>({x:(i/(g.valores.length-1||1))*280, y:50-(v/max)*45}));
-    const pathPts = puntos.map(p=>`${p.x},${p.y}`).join(' ');
-    const circulos = puntos.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="3" fill="#d4a53f"/><text x="${p.x}" y="${p.y-6}" font-size="8" fill="#94a3b8" text-anchor="middle">${g.valores[i]}</text>`).join('');
-    return `<svg viewBox="0 0 280 60" style="width:100%;height:65px;"><polyline points="${pathPts}" fill="none" stroke="#d4a53f" stroke-width="2"/>${circulos}</svg>
-        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-top:2px;">${g.categorias.map(c=>`<span>${c}</span>`).join('')}</div>`;
+    if(g.tipo==='linea'){
+        const max = Math.max(...g.valores,1);
+        const puntos = g.valores.map((v,i)=>({x:(i/(g.valores.length-1||1))*280, y:50-(v/max)*45}));
+        const pathPts = puntos.map(p=>`${p.x},${p.y}`).join(' ');
+        const circulos = puntos.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="3" fill="#d4a53f"/><text x="${p.x}" y="${p.y-6}" font-size="8" fill="#94a3b8" text-anchor="middle">${g.valores[i]}</text>`).join('');
+        return `<svg viewBox="0 0 280 60" style="width:100%;height:65px;"><polyline points="${pathPts}" fill="none" stroke="#d4a53f" stroke-width="2"/>${circulos}</svg>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-top:2px;">${g.categorias.map(c=>`<span>${c}</span>`).join('')}</div>`;
+    }
+    if(g.tipo==='kpi'){
+        return `<div style="text-align:center;padding:10px 0;">
+            <div style="font-size:36px;font-weight:800;color:${g.color||'var(--primary)'};">${g.valor}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${g.etiqueta||''}</div>
+        </div>`;
+    }
+    if(g.tipo==='tabla_comparativa'){
+        return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);"></th>${g.columnas.map(c=>`<th style="text-align:center;padding:6px;border-bottom:1px solid var(--border);color:var(--primary);">${c}</th>`).join('')}</tr></thead>
+            <tbody>${g.filas.map(f=>`<tr><td style="padding:6px;border-bottom:1px solid var(--bg2);font-weight:600;">${f.concepto}</td>${f.valores.map(v=>`<td style="text-align:center;padding:6px;border-bottom:1px solid var(--bg2);">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table></div>`;
+    }
+    if(g.tipo==='linea_tiempo'){
+        return `<div style="display:flex;flex-direction:column;gap:0;">${g.hitos.map((h,i)=>`
+            <div style="display:flex;gap:10px;">
+                <div style="display:flex;flex-direction:column;align-items:center;">
+                    <div style="width:10px;height:10px;border-radius:50%;background:var(--primary);flex-shrink:0;"></div>
+                    ${i<g.hitos.length-1?'<div style="width:2px;flex:1;background:var(--border);min-height:20px;"></div>':''}
+                </div>
+                <div style="padding-bottom:14px;">
+                    <div style="font-weight:700;font-size:12px;color:var(--primary);">${h.tiempo}</div>
+                    <div style="font-size:12px;color:var(--text-muted);">${h.descripcion}</div>
+                </div>
+            </div>`).join('')}</div>`;
+    }
+    if(g.tipo==='checklist'){
+        return `<div style="display:flex;flex-direction:column;gap:6px;">${g.items.map(it=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;"><span style="color:#6ee7b7;">✓</span>${it}</div>`).join('')}</div>`;
+    }
+    if(g.tipo==='planes'){
+        return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">${g.planes.map(p=>`
+            <div style="background:var(--bg2);border-radius:10px;padding:12px;text-align:center;">
+                <div style="font-weight:800;font-size:13px;">${p.nombre}</div>
+                <div style="font-size:18px;font-weight:800;color:var(--primary);margin:6px 0;">${p.precio}</div>
+                <div style="font-size:10.5px;color:var(--text-muted);text-align:left;">${(p.items||[]).map(it=>`<div>✓ ${it}</div>`).join('')}</div>
+            </div>`).join('')}</div>`;
+    }
+    if(g.tipo==='gauge'){
+        const pct = Math.min(100, Math.max(0, (g.valor/g.max)*100));
+        const circunferencia = 2*Math.PI*40;
+        return `<div style="display:flex;align-items:center;gap:16px;">
+            <svg viewBox="0 0 100 100" style="width:90px;height:90px;">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--bg2)" stroke-width="10"/>
+                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--primary)" stroke-width="10" stroke-dasharray="${circunferencia}" stroke-dashoffset="${circunferencia*(1-pct/100)}" stroke-linecap="round" transform="rotate(-90 50 50)"/>
+                <text x="50" y="55" text-anchor="middle" font-size="20" font-weight="800" fill="var(--text)">${Math.round(pct)}%</text>
+            </svg>
+            <div style="font-size:12px;color:var(--text-muted);">${g.etiqueta||''}</div>
+        </div>`;
+    }
+    if(g.tipo==='cifras'){
+        return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px;text-align:center;">${g.items.map(it=>`
+            <div><div style="font-size:22px;font-weight:800;color:var(--primary);">${it.numero}</div><div style="font-size:10.5px;color:var(--text-muted);">${it.etiqueta}</div></div>`).join('')}</div>`;
+    }
+    return '';
 }
 
+/* ═══════════ EDITOR DE BLOQUES (modal unificado) ═══════════ */
 let filasGraficaTmp = [];
-function abrirNuevaGrafica(){
+
+function cambiarTipoBloque(){
+    const tipo = document.getElementById('grTipo').value;
+    ['Grafica','Kpi','Tabla','Tiempo','Checklist','Planes','Gauge','Cifras'].forEach(w=>{
+        document.getElementById('bloqueWrap'+w).style.display = 'none';
+    });
+    const mapa = {barra:'Grafica',dona:'Grafica',linea:'Grafica',kpi:'Kpi',tabla_comparativa:'Tabla',linea_tiempo:'Tiempo',checklist:'Checklist',planes:'Planes',gauge:'Gauge',cifras:'Cifras'};
+    document.getElementById('bloqueWrap'+mapa[tipo]).style.display = '';
+    if(tipo==='barra'||tipo==='dona'||tipo==='linea'){ filasGraficaTmp=[{cat:'',val:''},{cat:'',val:''}]; renderFilasGenericas('grFilasWrap',['Categoría','Valor'],filasGraficaTmp); }
+}
+
+function abrirNuevoBloque(){
     set('grTitulo','');
     document.getElementById('grTipo').value = 'barra';
     filasGraficaTmp = [{cat:'',val:''},{cat:'',val:''}];
-    renderFilasGrafica();
+    renderFilasGenericas('grFilasWrap',['Categoría','Valor'],filasGraficaTmp);
+    document.getElementById('tablaFilasWrap').innerHTML=''; set('tablaColumnas','');
+    document.getElementById('tiempoFilasWrap').innerHTML='';
+    document.getElementById('checklistFilasWrap').innerHTML='';
+    document.getElementById('planesFilasWrap').innerHTML='';
+    document.getElementById('cifrasFilasWrap').innerHTML='';
+    set('kpiValor',''); set('kpiEtiqueta',''); set('gaugeValor',''); set('gaugeMax','100'); set('gaugeEtiqueta','');
+    cambiarTipoBloque();
     document.getElementById('mGrafica').classList.add('active');
 }
-function renderFilasGrafica(){
-    document.getElementById('grFilasWrap').innerHTML = filasGraficaTmp.map((f,i)=>`
+
+// Sistema genérico de filas con N campos de texto (usado por timeline, checklist, planes, cifras)
+const filasGenericasTmp = {};
+function renderFilasGenericas(wrapId, labels, arr){
+    filasGenericasTmp[wrapId] = arr;
+    document.getElementById(wrapId).innerHTML = arr.map((fila,i)=>`
         <div style="display:flex;gap:6px;">
-            <input type="text" placeholder="Categoría" value="${f.cat}" oninput="filasGraficaTmp[${i}].cat=this.value" style="flex:1;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);">
-            <input type="number" placeholder="Valor" value="${f.val}" oninput="filasGraficaTmp[${i}].val=this.value" style="width:100px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);">
-            <button class="btn-sm sm-del" onclick="filasGraficaTmp.splice(${i},1);renderFilasGrafica();">🗑️</button>
+            ${labels.map((lbl,li)=>`<input type="text" placeholder="${lbl}" value="${fila[Object.keys(fila)[li]]||''}" oninput="filasGenericasTmp['${wrapId}'][${i}]['${Object.keys(fila)[li]}']=this.value" style="flex:1;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);">`).join('')}
+            <button class="btn-sm sm-del" onclick="filasGenericasTmp['${wrapId}'].splice(${i},1);renderFilasGenericas('${wrapId}',${JSON.stringify(labels)},filasGenericasTmp['${wrapId}']);">🗑️</button>
         </div>`).join('');
 }
-function agregarFilaGrafica(){ filasGraficaTmp.push({cat:'',val:''}); renderFilasGrafica(); }
 
-async function guardarGrafica(){
+function agregarFilaGenerica(wrapId, labels){
+    const claves = {
+        grFilasWrap:['cat','val'], tiempoFilasWrap:['tiempo','descripcion'],
+        checklistFilasWrap:['texto'], planesFilasWrap:['nombre','precio','items'], cifrasFilasWrap:['numero','etiqueta']
+    }[wrapId];
+    if(!filasGenericasTmp[wrapId]) filasGenericasTmp[wrapId] = [];
+    const nuevaFila = {}; claves.forEach(k=>nuevaFila[k]='');
+    filasGenericasTmp[wrapId].push(nuevaFila);
+    renderFilasGenericas(wrapId, labels, filasGenericasTmp[wrapId]);
+}
+
+function agregarFilaTabla(){
+    if(!filasGenericasTmp['tablaFilasWrap']) filasGenericasTmp['tablaFilasWrap'] = [];
+    const numCols = (get('tablaColumnas').split(',').filter(c=>c.trim()).length) || 2;
+    const fila = {concepto:'', valores: Array(numCols).fill('')};
+    filasGenericasTmp['tablaFilasWrap'].push(fila);
+    renderFilasTabla();
+}
+function renderFilasTabla(){
+    const filas = filasGenericasTmp['tablaFilasWrap']||[];
+    document.getElementById('tablaFilasWrap').innerHTML = filas.map((f,i)=>`
+        <div style="display:flex;gap:6px;">
+            <input type="text" placeholder="Concepto" value="${f.concepto}" oninput="filasGenericasTmp['tablaFilasWrap'][${i}].concepto=this.value" style="flex:1;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);">
+            ${f.valores.map((v,vi)=>`<input type="text" placeholder="Valor" value="${v}" oninput="filasGenericasTmp['tablaFilasWrap'][${i}].valores[${vi}]=this.value" style="width:90px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);">`).join('')}
+            <button class="btn-sm sm-del" onclick="filasGenericasTmp['tablaFilasWrap'].splice(${i},1);renderFilasTabla();">🗑️</button>
+        </div>`).join('');
+}
+
+async function guardarBloque(){
     const titulo = get('grTitulo').trim();
     if(!titulo){ toast('Escribe un título','err'); return; }
-    const categorias = filasGraficaTmp.map(f=>f.cat);
-    const valores = filasGraficaTmp.map(f=>parseFloat(f.val)||0);
+    const tipo = document.getElementById('grTipo').value;
+    let bloque = {titulo, tipo};
+
+    if(tipo==='barra'||tipo==='dona'||tipo==='linea'){
+        bloque.categorias = filasGenericasTmp['grFilasWrap'].map(f=>f.cat);
+        bloque.valores = filasGenericasTmp['grFilasWrap'].map(f=>parseFloat(f.val)||0);
+    } else if(tipo==='kpi'){
+        bloque.valor = get('kpiValor'); bloque.etiqueta = get('kpiEtiqueta'); bloque.color = document.getElementById('kpiColor').value;
+    } else if(tipo==='tabla_comparativa'){
+        bloque.columnas = get('tablaColumnas').split(',').map(c=>c.trim()).filter(Boolean);
+        bloque.filas = (filasGenericasTmp['tablaFilasWrap']||[]).map(f=>({concepto:f.concepto, valores:f.valores}));
+    } else if(tipo==='linea_tiempo'){
+        bloque.hitos = (filasGenericasTmp['tiempoFilasWrap']||[]).map(f=>({tiempo:f.tiempo, descripcion:f.descripcion}));
+    } else if(tipo==='checklist'){
+        bloque.items = (filasGenericasTmp['checklistFilasWrap']||[]).map(f=>f.texto).filter(Boolean);
+    } else if(tipo==='planes'){
+        bloque.planes = (filasGenericasTmp['planesFilasWrap']||[]).map(f=>({nombre:f.nombre, precio:f.precio, items:(f.items||'').split(',').map(x=>x.trim()).filter(Boolean)}));
+    } else if(tipo==='gauge'){
+        bloque.valor = parseFloat(get('gaugeValor'))||0; bloque.max = parseFloat(get('gaugeMax'))||100; bloque.etiqueta = get('gaugeEtiqueta');
+    } else if(tipo==='cifras'){
+        bloque.items = (filasGenericasTmp['cifrasFilasWrap']||[]).map(f=>({numero:f.numero, etiqueta:f.etiqueta}));
+    }
+
     const s = sesiones.find(x=>x.id===sesionActualId);
     const datos = s.datos_vivos || {};
     datos.graficas = datos.graficas || [];
-    datos.graficas.push({titulo, tipo:document.getElementById('grTipo').value, categorias, valores});
+    datos.graficas.push(bloque);
     s.datos_vivos = datos;
     const {error} = await db.from('sesiones_presentacion').update({datos_vivos:datos}).eq('id',sesionActualId);
     if(error){ toast('❌ '+error.message,'err'); return; }
     closeModal('mGrafica');
     renderGraficasEditor();
-    toast('✓ Gráfica agregada');
+    toast('✓ Bloque agregado');
 }
 
 async function borrarGrafica(idx){
@@ -1078,6 +1290,74 @@ async function borrarGrafica(idx){
     s.datos_vivos.graficas.splice(idx,1);
     await db.from('sesiones_presentacion').update({datos_vivos:s.datos_vivos}).eq('id',sesionActualId);
     renderGraficasEditor();
+}
+
+/* ═══════════ VINCULAR CLIENTE EXISTENTE ═══════════ */
+let clientesReales = [];
+async function cargarSelectClientes(){
+    const {data} = await db.from('clientes').select('id,nombre_empresa,nombre_individual,nit').eq('estado',true).order('nombre_empresa');
+    clientesReales = data||[];
+    document.getElementById('selectClienteVincular').innerHTML = '<option value="">Buscar cliente...</option>' +
+        clientesReales.map(c=>`<option value="${c.id}">${c.nombre_empresa||c.nombre_individual} (${c.nit})</option>`).join('');
+}
+
+async function vincularClienteExistente(){
+    const cliId = document.getElementById('selectClienteVincular').value;
+    if(!cliId){ toast('Elige un cliente','err'); return; }
+    const {error} = await db.from('sesiones_presentacion').update({cliente_id:cliId}).eq('id',sesionActualId);
+    if(error){ toast('❌ '+error.message,'err'); return; }
+    const s = sesiones.find(x=>x.id===sesionActualId);
+    s.cliente_id = cliId;
+    toast('✓ Cliente vinculado');
+    await cargarDatosClienteVinculado();
+}
+
+async function desvincularCliente(){
+    if(!confirm('¿Desvincular este cliente de la sesión?')) return;
+    await db.from('sesiones_presentacion').update({cliente_id:null}).eq('id',sesionActualId);
+    const s = sesiones.find(x=>x.id===sesionActualId);
+    s.cliente_id = null;
+    await cargarDatosClienteVinculado();
+    toast('✓ Cliente desvinculado');
+}
+
+async function cargarDatosClienteVinculado(){
+    const s = sesiones.find(x=>x.id===sesionActualId);
+    const wrap = document.getElementById('datosClienteVinculadoWrap');
+    const textoEl = document.getElementById('clienteVinculadoTexto');
+    const btnDes = document.getElementById('btnDesvincularCliente');
+
+    if(!s.cliente_id){
+        wrap.style.display='none'; wrap.innerHTML='';
+        textoEl.textContent = 'Sin vincular — esta es una sesión con un prospecto nuevo';
+        btnDes.style.display = 'none';
+        return;
+    }
+
+    const {data: c} = await db.from('clientes').select('*, regimen:regimen_id(nombre)').eq('id',s.cliente_id).maybeSingle();
+    if(!c){ textoEl.textContent='Cliente vinculado ya no existe'; return; }
+
+    const mesActual = new Date().toISOString().slice(0,7);
+    const {data: pagosMes} = await db.from('pagos_clientes').select('monto').eq('cliente_id',s.cliente_id).eq('mes_correspondiente',mesActual);
+    const {data: pagosAnio} = await db.from('pagos_clientes').select('monto,fecha_pago').eq('cliente_id',s.cliente_id).gte('fecha_pago', new Date().getFullYear()+'-01-01');
+    const {data: impCliente} = await db.from('cliente_impuestos').select('impuesto:impuesto_id(nombre)').eq('cliente_id',s.cliente_id);
+
+    const totalMes = (pagosMes||[]).reduce((sum,p)=>sum+(p.monto||0),0);
+    const totalAnio = (pagosAnio||[]).reduce((sum,p)=>sum+(p.monto||0),0);
+    const nombreImpuestos = (impCliente||[]).map(i=>i.impuesto?.nombre).filter(Boolean);
+
+    textoEl.textContent = `Vinculado a: ${c.nombre_empresa||c.nombre_individual} (${c.nit})`;
+    btnDes.style.display = '';
+    wrap.style.display = 'block';
+    wrap.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;font-size:12.5px;">
+            <div>📋 Régimen<br><strong>${c.regimen?.nombre||'—'}</strong></div>
+            <div>💰 Pagado este mes<br><strong>Q${totalMes.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
+            <div>💰 Pagado este año<br><strong>Q${totalAnio.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
+            <div>🧾 Impuestos afectos<br><strong>${nombreImpuestos.join(', ')||'—'}</strong></div>
+        </div>
+        <button class="btn-sm sm-copy" style="margin-top:10px;" onclick="cargarDatosClienteVinculado()">🔄 Actualizar en vivo</button>
+    `;
 }
 
 /* ═══════════ SERVICIOS ═══════════ */
@@ -1249,6 +1529,7 @@ async function cargarYMostrarSesionEnVivo(){
     document.getElementById('visualizadorContenido').style.display='block';
     const datos = data.datos_vivos||{};
     document.getElementById('vizNombreProspecto').textContent = datos.nombre || data.nombre_prospecto;
+    if(datos.colorAcento){ document.documentElement.style.setProperty('--primary', datos.colorAcento); }
 
     const graficas = datos.graficas||[];
     document.getElementById('vizGraficasWrap').innerHTML = graficas.map(g=>`
