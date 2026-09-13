@@ -446,6 +446,17 @@
                         </div>
                     </div>
                     <div id="datosClienteVinculadoWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
+                    <div id="controlVisibilidadClienteWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;margin-bottom:10px;cursor:pointer;">
+                            <input type="checkbox" id="chkMostrarDatosCliente" onchange="guardarVisibilidadClienteVinculado()"> 👁️ Mostrar estos datos al Visualizador
+                        </label>
+                        <div id="checksVisibilidadDetalle" style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;padding-left:24px;">
+                            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisRegimen" onchange="guardarVisibilidadClienteVinculado()"> Régimen</label>
+                            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisPagadoMes" onchange="guardarVisibilidadClienteVinculado()"> Pagado este mes</label>
+                            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisPagadoAnio" onchange="guardarVisibilidadClienteVinculado()"> Pagado este año</label>
+                            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="chkVisImpuestos" onchange="guardarVisibilidadClienteVinculado()"> Impuestos afectos</label>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
@@ -500,6 +511,7 @@
                     <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Propuesta para</div>
                     <h1 style="font-size:32px;font-weight:800;margin-top:6px;" id="vizNombreProspecto"></h1>
                 </div>
+                <div id="vizDatosClienteWrap" style="display:none;margin-bottom:30px;"></div>
                 <div id="vizGraficasWrap" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:30px;"></div>
                 <div id="vizServiciosWrap" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;"></div>
                 <div style="text-align:center;margin-top:30px;">
@@ -1304,10 +1316,13 @@ async function cargarSelectClientes(){
 async function vincularClienteExistente(){
     const cliId = document.getElementById('selectClienteVincular').value;
     if(!cliId){ toast('Elige un cliente','err'); return; }
-    const {error} = await db.from('sesiones_presentacion').update({cliente_id:cliId}).eq('id',sesionActualId);
-    if(error){ toast('❌ '+error.message,'err'); return; }
     const s = sesiones.find(x=>x.id===sesionActualId);
+    const datos = s.datos_vivos || {};
+    datos.datosClienteVisibles = datos.datosClienteVisibles || {activo:true, regimen:true, pagadoMes:true, pagadoAnio:true, impuestos:true};
+    const {error} = await db.from('sesiones_presentacion').update({cliente_id:cliId, datos_vivos:datos}).eq('id',sesionActualId);
+    if(error){ toast('❌ '+error.message,'err'); return; }
     s.cliente_id = cliId;
+    s.datos_vivos = datos;
     toast('✓ Cliente vinculado');
     await cargarDatosClienteVinculado();
 }
@@ -1321,43 +1336,78 @@ async function desvincularCliente(){
     toast('✓ Cliente desvinculado');
 }
 
+// Función compartida: usada tanto por el Editor como por el Visualizador
+async function obtenerDatosClienteReal(clienteId){
+    const {data: c} = await db.from('clientes').select('*, regimen:regimen_id(nombre)').eq('id',clienteId).maybeSingle();
+    if(!c) return null;
+    const mesActual = new Date().toISOString().slice(0,7);
+    const {data: pagosMes} = await db.from('pagos_clientes').select('monto').eq('cliente_id',clienteId).eq('mes_correspondiente',mesActual);
+    const {data: pagosAnio} = await db.from('pagos_clientes').select('monto,fecha_pago').eq('cliente_id',clienteId).gte('fecha_pago', new Date().getFullYear()+'-01-01');
+    const {data: impCliente} = await db.from('cliente_impuestos').select('impuesto:impuesto_id(nombre)').eq('cliente_id',clienteId);
+    return {
+        nombre: c.nombre_empresa||c.nombre_individual, nit: c.nit,
+        regimen: c.regimen?.nombre||'—',
+        pagadoMes: (pagosMes||[]).reduce((sum,p)=>sum+(p.monto||0),0),
+        pagadoAnio: (pagosAnio||[]).reduce((sum,p)=>sum+(p.monto||0),0),
+        impuestos: (impCliente||[]).map(i=>i.impuesto?.nombre).filter(Boolean).join(', ')||'—'
+    };
+}
+
 async function cargarDatosClienteVinculado(){
     const s = sesiones.find(x=>x.id===sesionActualId);
     const wrap = document.getElementById('datosClienteVinculadoWrap');
     const textoEl = document.getElementById('clienteVinculadoTexto');
     const btnDes = document.getElementById('btnDesvincularCliente');
+    const controlWrap = document.getElementById('controlVisibilidadClienteWrap');
 
     if(!s.cliente_id){
         wrap.style.display='none'; wrap.innerHTML='';
+        controlWrap.style.display='none';
         textoEl.textContent = 'Sin vincular — esta es una sesión con un prospecto nuevo';
         btnDes.style.display = 'none';
         return;
     }
 
-    const {data: c} = await db.from('clientes').select('*, regimen:regimen_id(nombre)').eq('id',s.cliente_id).maybeSingle();
-    if(!c){ textoEl.textContent='Cliente vinculado ya no existe'; return; }
+    const info = await obtenerDatosClienteReal(s.cliente_id);
+    if(!info){ textoEl.textContent='Cliente vinculado ya no existe'; return; }
 
-    const mesActual = new Date().toISOString().slice(0,7);
-    const {data: pagosMes} = await db.from('pagos_clientes').select('monto').eq('cliente_id',s.cliente_id).eq('mes_correspondiente',mesActual);
-    const {data: pagosAnio} = await db.from('pagos_clientes').select('monto,fecha_pago').eq('cliente_id',s.cliente_id).gte('fecha_pago', new Date().getFullYear()+'-01-01');
-    const {data: impCliente} = await db.from('cliente_impuestos').select('impuesto:impuesto_id(nombre)').eq('cliente_id',s.cliente_id);
-
-    const totalMes = (pagosMes||[]).reduce((sum,p)=>sum+(p.monto||0),0);
-    const totalAnio = (pagosAnio||[]).reduce((sum,p)=>sum+(p.monto||0),0);
-    const nombreImpuestos = (impCliente||[]).map(i=>i.impuesto?.nombre).filter(Boolean);
-
-    textoEl.textContent = `Vinculado a: ${c.nombre_empresa||c.nombre_individual} (${c.nit})`;
+    textoEl.textContent = `Vinculado a: ${info.nombre} (${info.nit})`;
     btnDes.style.display = '';
     wrap.style.display = 'block';
     wrap.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;font-size:12.5px;">
-            <div>📋 Régimen<br><strong>${c.regimen?.nombre||'—'}</strong></div>
-            <div>💰 Pagado este mes<br><strong>Q${totalMes.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
-            <div>💰 Pagado este año<br><strong>Q${totalAnio.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
-            <div>🧾 Impuestos afectos<br><strong>${nombreImpuestos.join(', ')||'—'}</strong></div>
+            <div>📋 Régimen<br><strong>${info.regimen}</strong></div>
+            <div>💰 Pagado este mes<br><strong>Q${info.pagadoMes.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
+            <div>💰 Pagado este año<br><strong>Q${info.pagadoAnio.toLocaleString('es-GT',{minimumFractionDigits:2})}</strong></div>
+            <div>🧾 Impuestos afectos<br><strong>${info.impuestos}</strong></div>
         </div>
         <button class="btn-sm sm-copy" style="margin-top:10px;" onclick="cargarDatosClienteVinculado()">🔄 Actualizar en vivo</button>
     `;
+
+    controlWrap.style.display = 'block';
+    const vis = (s.datos_vivos?.datosClienteVisibles) || {activo:true, regimen:true, pagadoMes:true, pagadoAnio:true, impuestos:true};
+    document.getElementById('chkMostrarDatosCliente').checked = !!vis.activo;
+    document.getElementById('chkVisRegimen').checked = !!vis.regimen;
+    document.getElementById('chkVisPagadoMes').checked = !!vis.pagadoMes;
+    document.getElementById('chkVisPagadoAnio').checked = !!vis.pagadoAnio;
+    document.getElementById('chkVisImpuestos').checked = !!vis.impuestos;
+    document.getElementById('checksVisibilidadDetalle').style.opacity = vis.activo ? '1' : '0.4';
+}
+
+async function guardarVisibilidadClienteVinculado(){
+    const s = sesiones.find(x=>x.id===sesionActualId);
+    const datos = s.datos_vivos || {};
+    datos.datosClienteVisibles = {
+        activo: document.getElementById('chkMostrarDatosCliente').checked,
+        regimen: document.getElementById('chkVisRegimen').checked,
+        pagadoMes: document.getElementById('chkVisPagadoMes').checked,
+        pagadoAnio: document.getElementById('chkVisPagadoAnio').checked,
+        impuestos: document.getElementById('chkVisImpuestos').checked
+    };
+    s.datos_vivos = datos;
+    document.getElementById('checksVisibilidadDetalle').style.opacity = datos.datosClienteVisibles.activo ? '1' : '0.4';
+    const {error} = await db.from('sesiones_presentacion').update({datos_vivos:datos}).eq('id',sesionActualId);
+    if(error){ toast('❌ '+error.message,'err'); return; }
 }
 
 /* ═══════════ SERVICIOS ═══════════ */
@@ -1530,6 +1580,32 @@ async function cargarYMostrarSesionEnVivo(){
     const datos = data.datos_vivos||{};
     document.getElementById('vizNombreProspecto').textContent = datos.nombre || data.nombre_prospecto;
     if(datos.colorAcento){ document.documentElement.style.setProperty('--primary', datos.colorAcento); }
+
+    const vizDatosWrap = document.getElementById('vizDatosClienteWrap');
+    const vis = datos.datosClienteVisibles;
+    if(data.cliente_id && vis?.activo){
+        const info = await obtenerDatosClienteReal(data.cliente_id);
+        if(info){
+            const tarjetas = [];
+            if(vis.regimen) tarjetas.push(['📋 Régimen', info.regimen]);
+            if(vis.pagadoMes) tarjetas.push(['💰 Pagado este mes', 'Q'+info.pagadoMes.toLocaleString('es-GT',{minimumFractionDigits:2})]);
+            if(vis.pagadoAnio) tarjetas.push(['💰 Pagado este año', 'Q'+info.pagadoAnio.toLocaleString('es-GT',{minimumFractionDigits:2})]);
+            if(vis.impuestos) tarjetas.push(['🧾 Impuestos afectos', info.impuestos]);
+            if(tarjetas.length){
+                vizDatosWrap.style.display = 'grid';
+                vizDatosWrap.style.gridTemplateColumns = `repeat(auto-fit,minmax(180px,1fr))`;
+                vizDatosWrap.style.gap = '14px';
+                vizDatosWrap.innerHTML = tarjetas.map(([label,val])=>`
+                    <div class="table-card" style="padding:16px;text-align:center;">
+                        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">${label}</div>
+                        <div style="font-size:18px;font-weight:800;color:var(--primary);">${val}</div>
+                    </div>`).join('');
+            } else { vizDatosWrap.style.display='none'; vizDatosWrap.innerHTML=''; }
+        }
+    } else {
+        vizDatosWrap.style.display = 'none';
+        vizDatosWrap.innerHTML = '';
+    }
 
     const graficas = datos.graficas||[];
     document.getElementById('vizGraficasWrap').innerHTML = graficas.map(g=>`
